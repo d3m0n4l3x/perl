@@ -1,0 +1,266 @@
+[日記文]Perl API[perl_sock 1]
+writer:demonalex 
+email:demonalex_at_dark2s.org
+
+首先需要載入SOCKET模組。 
+use Socket; 
+====================================================================== 
+socket(檔案句柄,AF_INET,數據類型,協定類型); 
+#建立套接字
+檔案句柄隨便找個詞就可以了。 
+AF_INET為域類型，也可以寫為PF_INET。 
+數據類型，通常用有兩種：SOCK_STREAM、SOCK_DGRAM。 
+協定類型，可以用協定號代替，EGP---8、HMP---20、ICMP---1、 
+RAW---255、RDP---27、RVD---66、TCP---6、UDP---17、XNS-IDP---22、 
+其他---22、ALL---0；也可以用getprotobyname()函式作此參數。
+例子：socket(SOCK,AF_INET,SOCK_STREAM,getprotobyname('tcp')); 
+語柄為SOCK，套接字以TCP方式傳輸。 
+socket(SS,AF_INET,SOCK_DGRAM,17); 
+語柄為SS，套接字以UDP方式傳輸。
+======================================================================= 
+connect(檔案句柄,sockaddr_in結構體); 
+#連線主機
+----------------------------------------------- 
+sockaddr_in結構體：
+$address=inet_aton(地址); 
+$port=連線埠號;
+$result=sockaddr_in($port,$address);
+#上面的$result就是sockaddr_in結構體，實例：
+$address=inet_aton(127.0.0.1); 
+$port=80; 
+$result=sockaddr_in($port,$address); 
+-----------------------------------------------
+例子：connect(SOCK,$result);
+======================================================================= 
+bind(套接字,sockaddr_in結構體); 
+#綁定伺服器主機地址與連線埠(用於服務端)
+例子：bind(SOCK,$result);
+======================================================================= 
+listen(套接字,等待連線最大佇列數); 
+#設定連線埠狀態為監聽(用於服務端)
+例子：listen(SOCK,10);
+======================================================================= 
+accept(遠程套接字,服務端監聽套接字) 
+#接收遠程數據請求，建立連線(用於服務端)
+例子：accept(SESSION,SOCK);
+======================================================================= 
+close(檔案句柄); 
+或 
+close 檔案句柄; 
+#關閉套接字
+例子：close(SOCK); 
+close SS;
+●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●
+說說TCP的網路活動順序：
+======================================================================= 
+Client(客戶端):
+建立套接字socket()->連線到目標主機connect()->打開autoflush模式autoflush()-> 
+I/O操作->關閉套接字close()
+Server(伺服器):
+建立套接字socket()->綁定伺服器地址與連線埠bind()->設定監聽狀態listen()->接受遠程套接字accept()-> 
+打開autoflush模式autoflush()->I/O操作->關閉套接字close()
+●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●
+◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎ 
+PERL SOCKET API編程實例：
+附：I/O操作暫時只使用print()與<>符號。 
+======================================================================= 
+#!usr/bin/perl 
+#客戶端 
+use IO::Handle; #掛起IO::Handle 
+use Socket; #調用SOCKET 
+$port=80; #連線遠程主機的80連線埠 
+$host='localhost'; #使用環回地址 
+$packhost=inet_aton($host); #壓縮IP位址 
+$address=sockaddr_in($port,$packhost); #壓成sockaddr_in格式 
+socket(CLIENT,AF_INET,SOCK_STREAM,6); #套接字為CLIENT，使用TCP協定 
+connect(CLIENT,$address); #連線 
+CLIENT->autoflush(1); #開啟AUTOFLUSH模式 
+$msg_in= #INPUT 
+print "IN:$msg_in/n"; #OUTPUT 
+close CLIENT; #關閉套接字 
+exit 1; #退出程式 
+======================================================================= 
+#!usr/bin/perl 
+#服務端 
+use IO::Handle; #掛起IO::Handle 
+use Socket; #調用SOCKET 
+$port=80; #綁定的伺服器主機連線埠為80 
+$address=sockaddr_in($port,INADDR_ANY); #壓成sockaddr_in格式,使用INADDR_ANY通配符 
+socket(SERVER,AF_INET,SOCK_STREAM,getprotobyname('tcp')); #套接字為SERVER，使用TCP協定 
+bind(SERVER,$address); #綁定 
+listen(SERVER,10); #設定監聽狀態 
+while(1){ #進入I/O交換循環體 
+next unless (accept(CLIENT,SERVER)); 
+CLIENT->autoflush(1); 
+print CLIENT "WHAT DO YOU WANT?/n"; 
+close CLIENT;} 
+close SERVER; #關閉套接字 
+exit 1; #退出程式 
+======================================================================= 
+實例註解:
+1)TCP的client與server代碼中有一行'SOCK->autoflush(1);'，正常情況下下面的I/O代碼是會先進入快取， 
+再輸出的，但加了上面的代碼就可以跳過這一步直接輸出了。此代碼需要預先載入IO::Handle。
+2)INADDR_ANY通配符的值在Socket模組中已經定義了，其值為本地網路適配的所有網路接口(包括環回地址、 
+廣播地址、多播地址等)。 
+◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎◎ 
+頭有點痛，寫到這裡，下回介紹send()與recv()........：P
+
+
+[日記文]'send()' and 'recv'[perl_sock 2]
+writer:demonalex 
+email:demonalex_at_dark2s.org
+
+附接上文的某些內容，最後使用的兩個C/S程式中的數據交換部分使用了PERL I/O， 
+現在介紹一下PERL語言分配給套接字的‘原裝’網路數據交換函式：send()、recv()。 
+(這兩個函式對UDP協定的作用很大，但對TCP來說其實只能說是等於syswrite()、sysread()。)
+====================================================================== 
+位元組變數=send(套接字,傳送數據變數,標誌參數);
+send()函式用於在套接字進程中傳送數據。
+send()返回的值是儲存所傳送的位元組大小值的變數；傳送數據變數為傳輸數據的內容； 
+標誌參數為0(默認值就可以了)。
+例子：$bytes=send(SOCK,$data,0);
+====================================================================== 
+地址變數=recv(套接字,接收後的數據所儲存的變數,接收數據的長度,標誌參數);
+recv()函式用於在套接字進程中接收數據。
+recv()返回遠程主機的地址變數；第二個參數為接收後的數據所儲存的變數；第三個 
+參數為所接收數據的長度；標誌參數同樣為默認值0就可以了。
+例子：$address=recv(SOCK,$buffer,$length,0);
+====================================================================== 
+實驗1
+#!usr/bin/perl 
+#客戶端 
+use IO::Handle; 
+use Socket; 
+$port=80; 
+$host='localhost'; 
+$packhost=inet_aton($host); 
+$address=sockaddr_in($port,$packhost); 
+socket(CLIENT,AF_INET,SOCK_STREAM,6); 
+connect(CLIENT,$address); 
+CLIENT->autoflush(1); 
+recv(CLIENT,$msg_in,length($msg_in),0); 
+print "IN:$msg_in/n"; 
+close CLIENT; 
+exit 1; 
+======================================================================= 
+#!usr/bin/perl 
+#服務端 
+use IO::Handle; 
+use Socket; 
+$port=80; 
+$host='localhost'; 
+$packhost=inet_aton($host); 
+$address=sockaddr_in($port,$packhost); 
+socket(SERVER,AF_INET,SOCK_STREAM,getprotobyname('tcp')); 
+bind(SERVER,$address); 
+listen(SERVER,10); 
+while(1){ 
+next unless (accept(CLIENT,SERVER)); 
+CLIENT->autoflush(1); 
+$msg_out="WHAT DO YOU WANT?/n"; 
+send(CLIENT,$msg_out,0); 
+close CLIENT;} 
+close SERVER; 
+exit 1;
+
+
+[日記文]udp of perl socket[perl_sock 3]
+writer:demonalex 
+email:demonalex_at_dark2s.org
+
+繼續上文談到的send()與recv()，這次談一下它們在udp socket中的套用以及如果使用 
+perl socket API來調用UDP。
+先看看在UDP中的send()、recv()套用: 
+========================================================================== 
+位元組變數=send(套接字,傳送數據變數,標誌參數，傳送地址);
+send()函式用於在套接字進程中傳送數據。
+send()返回的值是儲存所傳送的位元組大小值的變數；傳送數據變數為傳輸數據的內容； 
+標誌參數為0(默認值就可以了)；send()在udp中就多了最後一個參數，‘傳送地址’， 
+此地址的數據形式為sockaddr_in格式，表示把第二參數‘傳送數據變數’傳送到此地址中。
+例子：$bytes=send(SOCK,$data,0,$address); 
+樓上例子中的$address為sockaddr_in格式。 
+========================================================================== 
+地址變數=recv(套接字,接收後的數據所儲存的變數,接收數據的長度,標誌參數);
+recv()函式用於在套接字進程中接收數據。
+recv()返回遠程主機的地址變數；第二個參數為接收後的數據所儲存的變數；第三個 
+參數為所接收數據的長度；標誌參數同樣為默認值0就可以了。
+例子：$address=recv(SOCK,$buffer,$length,0); 
+========================================================================== 
+從樓上的講解可以知道，在UDP調用中send()比TCP調用時多了一個參數，而recv()與在TCP調用時的 
+使用方法完全一致。
+------------------------------------------------------------------------ 
+UDP網路活動順序:
+Client(客戶端): 
+建立套接字socket()->傳送數據send()->接受數據recv()->關閉套接字close()
+Server(服務端): 
+建立套接字socket()->綁定地址bind()->接受數據recv()->傳送數據send()->關閉套接字close() 
+------------------------------------------------------------------------ 
+從樓上的流程不難發現UDP中的客戶端與服務端的不同之處有兩點:1)服務端在建立套接字後多添了一個 
+綁定bind()程式，用於使客戶端能分辨出服務端的網路地址與連線埠;2)在send()與recv()步驟上順序倒過 
+來了。 
+〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 
+最後可以看看例子，琢磨琢磨: 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━ 
+#!use/bin/perl -w 
+#udp client 
+use Socket; #導入Socket庫 
+$host=$ARGV[0]; #第一參數為主機變數 
+$port=$ARGV[1]; #第二參數為連線埠變數 
+$packhost=inet_aton($host); #壓縮主機地址 
+$address=sockaddr_in($port,$packhost); #壓為sockaddr_in模式 
+socket(CLIENT,AF_INET,SOCK_DGRAM,17); #建立UDP套接字 
+send(CLIENT,"hi,body!/n",0,$address); #向套接字傳送字元串變數 
+recv(CLIENT,$buff,100,0); #接收數據 
+print"$buff/n"; #把接收後的數據打入STDOUT 
+close CLIENT; #關閉套接字 
+exit 1; #退出程式 
+¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤ 
+#!use/bin/perl -w 
+#udp server 
+use Socket; #導入Socket庫 
+$localhost=sockaddr_in(4000,INADDR_ANY);#壓入sockaddr_in模式，使用了全局本地壓縮地址INADDR_ANY保留字 
+socket(SERVER,AF_INET,SOCK_DGRAM,17); #建立UDP套接字 
+bind(SERVER,$localhost); #綁定套接字 
+while(1){ #進入伺服器循環體 
+next unless $client=recv(SERVER,$buff,100,0); #如果接收到數據就把數據壓入$buff,保留遠程地址在$client 
+chop($buff); #減去$buff最後的輸入符號 
+print "$buff/n"; #在$buff變數打入STDOUT 
+send(SERVER,"$buff/n",0,$client); #把$buff傳送給客戶端 
+} 
+close SERVER; #關閉套接字 
+exit 1; #退出程式 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+[日記文]Summary[perl_sock 4]
+writer:demonalex 
+email:demonalex_at_dark2s.org
+
+此文為前三篇文章的總結文。
+tcp的服務端I/O結構體: 
+----------------------------------------------- 
+while(1){ 
+next unless (accept(CLIENT,SERVER)); 
+CLIENT->autoflush(1); 
+print CLIENT "WHAT DO YOU WANT?/n"; 
+close CLIENT;} 
+----------------------------------------------- 
+udp的服務端I/O結構體: 
+----------------------------------------------- 
+while(1){ 
+next unless $client=recv(SERVER,$buff,100,0); 
+chop($buff); 
+print "$buff/n"; 
+send(SERVER,"$buff/n",0,$client); 
+} 
+-----------------------------------------------
+從上面的實例可以看出SERVER的I/O體都是循環體，有一特定條件進行循環 
+(我們這裡用了死循環while(1))，為了就是使服務端能不停的在監聽。
+TCP I/O的特徵就是在accept()中生成一個客戶端的套接字，所有I/O操作都 
+在此套接字中進行，當I/O完成後，先把客戶端的套接字關閉，最後才在程式 
+的末端部分關閉服務端的套接字。
+UDP I/O的特徵就是recv()部分，由於在介紹UDP的那篇文中的實例為通過UDP 
+把輸入的數據返回到客戶端的程式，在服務端中的下一步就應該調用send()了， 
+在send()中的最後一個參數為sockaddr_in形式地址，又因為在UDP中不能調用 
+accept()，所以無法得知對方的對象在哪裡，只能通過recv()的返回值。recv() 
+的返回值剛好為對方傳送數據的sockaddr_in形式地址。
