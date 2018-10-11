@@ -1,0 +1,144 @@
+[整理文]Net::Ping包使用方法简介 
+
+writer: demonalex 
+email: demonalex_at_hackermail.com 
+homepage: demonalex.co.tv 
+
+
+    Net::Ping包-----1个为了检查数据包到远程主机是否能到达的接口。 
+
+    附录:Perl5 WIN32版自带也有Net::Ping包，在perl目录\lib\Net\下，不过那个包对此文所提到的方法与其 
+属性等很多都不支持，建议到CPAN再下一次，URL: 
+http://search.cpan.org/src/BBB/Net-Ping-2.31/lib/Net/Ping.pm 
+由于此包的使用方法特殊，所以加个循环结构用作网络安全中使用的扫描器就再好不过了。 
+
+    这个包的基本运行步骤是这样的:建立对象(定义协议等网络参数)->PING->[ACK](当PING的协议为SYN时此步 
+骤有效)->关闭对象。协议有6种方便选择，预定义为TCP；当选定协议为UDP时只能探测到UDP7---ECHO服务；IC- 
+MP时等于普通的PING，但运行需要root权限；当协议为external时将会调用Net::Ping::External模块，在这里 
+就不多加说明了；使用的SYN的话就会使用半开式连接探测，此时可以使用ack方法作返回值探测，注意:有点不 
+同的是在这里调用SYN是不需要root权限的。 
+
+=================================================================================================================== 
+主要方法: 
+------------------------------------------------------------------------------------------------------ 
+Net::Ping->new([$proto [, $def_timeout [, $bytes [, $device [, $tos ]]]]]); 
+
+新建了一个Net::Ping对象。第一个参数($proto)为协议值，共有六种选择：TCP、UDP、ICMP、STREAM、SYN、E- 
+XTERNAL，默认值为TCP；第二个参数为默认超时值($def_timeout)，以秒为单位，设置此值是为了定义PING方法 
+的超时值，默认为5秒；发送包的数据大小($bytes)会根据你选择的协议不同而有不同的结果，当你选择的协议 
+为TCP时系统忽略此值，当协议为UDP时此值默认为为1(最小值)，其他类型则为0，此值可以选择的最大值为1024 
+；设备选项($device)为输出设备接口；服务类型Type of service($tos)通常可以忽略。可以使用无参数方式 
+调用此方法。调用此方法后的返回值为一个Net::Ping对象变量。 
+
+
+$p->ping($host [, $timeout]); 
+
+发送一个数据包并等待其返回。$p为Net::Ping对象变量；$host为远程主机地址(既可以是HOST格式，也可以是 
+Address格式)；超时值($timeout)为发送数据的超时值，此值可以省略，当此参数省略时，数据超时值以new方 
+法的$def_timeout的值为准。这个方法的返回值为非典型布尔值，有三种可能:有返回值时为非0数、无返回值时 
+为0、发送参数定义失败为undef。 
+
+
+$p->source_verify( { 0 | 1 } ); 
+
+此方法是允许源地址检测多网络接口的远程主机返回数据的‘有效性’的。此方法只影响UDP与ICMP。默认此方 
+法所对应的功能是启动的。 
+
+
+$p->service_check( { 0 | 1 } ); 
+
+调用此方法将强行确定对方服务的‘有效性’。这个方法只针对TCP、UDP、SYN。默认此方法对应的功能是不启 
+动的。 
+
+
+$p->hires( { 0 | 1 } ); 
+
+调用此方法将导致使用Time::HiRes模块，允许在以毫秒为单位的时间内接受被并发PING方法调用的数据返回。 
+默认此方法所对应的功能是不启动的。 
+
+
+$p->bind($local_addr); 
+
+用于绑定发送数据包的源地址(PS:是不是觉得好象在定义SOCKET的服务端呢?!:P)。参数的值可以使用HOST格式 
+或ADDRESS格式，但一定要是本机器的其中一个接口的地址。 
+
+
+$p->open($host); 
+
+当你使用的协议类型是STEAM时，每一次调用这个方法都会打开一个SOCKET。这个方法通常只用于为了建立不同 
+超时值的连接时或用于移除原先由PING方法所帮定的主机地址时；这个方法的调用对其他协议无效。 
+
+
+$p->ack( [ $host ] ); 
+
+当你使用SYN协议时，调用此方法用于探测由远程主机返回的回应数据包(SYN+ISN+ACK)。返回值为布尔值；参 
+数($host)若被定义且此方法调用成功则此值为发出回应数据包的主机地址值。此方法只用与SYN协议。 
+
+
+$p->nack( $failed_ack_host ); 
+
+此方法通常配合ACK方法一起使用。此方法是为了找出为什么调用ACK方法会‘失败’的原因(PS:算是这个包的 
+一个容错机制吧)。参数为调用ACK方法失败的主机地址值。 
+
+
+$p->close(); 
+
+关闭Net::Ping对象变量。 
+
+
+pingecho($host [, $timeout]); 
+
+一个为了兼容性而存在的函数，调用方法与PING方法一样，但只用于TCP。 
+
+=================================================================================================================== 
+相关实验: 
+------------------------------------------------------------------------------------------------------ 
+#!usr/bin/perl -w 
+use Net::Ping; 
+$remote_host=$ARGV[0]; 
+$syn=Net::Ping->new("syn"); 
+$syn->{port_num}=$ARGV[1]; 
+$syn->ping($remote_host); 
+if($syn->ack){ 
+print("Host: $ARGV[0]'s Port: $ARGV[1] is Opened!\n"); 
+$syn->close; 
+exit 1; 
+}else{ 
+print("Maybe Closed!:(\n"); 
+$syn->close; 
+exit 1; 
+} 
+
+#单IP单端口SYN扫描器 
+
+=================================================================================================================== 
+作者与版权: 
+------------------------------------------------------------------------------------------------------ 
+AUTHORS  
+  Current maintainer: 
+    bbb@cpan.org (Rob Brown) 
+
+  External protocol: 
+    colinm@cpan.org (Colin McMillen) 
+
+  Stream protocol: 
+    bronson@trestle.com (Scott Bronson) 
+
+  Original pingecho(): 
+    karrer@bernina.ethz.ch (Andreas Karrer) 
+    pmarquess@bfsec.bt.co.uk (Paul Marquess) 
+
+  Original Net::Ping author: 
+    mose@ns.ccsn.edu (Russell Mosemann) 
+COPYRIGHT  
+Copyright (c) 2002-2003, Rob Brown. All rights reserved. 
+
+Copyright (c) 2001, Colin McMillen. All rights reserved. 
+
+This program is free software; you may redistribute it and/or modify it under the same terms as Perl itself. 
+
+$Id: Ping.pm,v 1.86 2003/06/27 21:31:07 rob Exp $ 
+
+=================================================================================================================== 
+
+    此文写得特烂，希望大家不要见怪:P 
