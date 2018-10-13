@@ -1,0 +1,38 @@
+How to utilize IO::Socket::SSL in a real world
+
+1) On the server side, generate the private key and certificate by executing the command below:
+#openssl req -newkey rsa:2048 -nodes -keyout /root/server-key.pem -x509 -days 365 -out /root/cert.pem
+
+2) Write the code on the server side as such:
+---------------------------------
+#!/usr/bin/perl -w
+use IO::Socket::SSL;
+$|=1;
+$listener = IO::Socket::SSL->new(
+	LocalAddr => '0.0.0.0:5354',
+	Listen => 10,
+	SSL_cert_file => '/root/server-cert.pem',
+	SSL_key_file => '/root/server-key.pem',
+);
+while(1){
+	next unless $client_sock=$listener->accept();
+	$remote_command=<$client_sock>;
+	print "$remote_command\n";
+	$client_sock->shutdown(2);
+}
+$listener->close();
+exit(1);
+---------------------------------
+After the code is written, run the code on the server side.
+
+3) The code on the client side is shown below:
++++++++++++++++++++++++++++++++++
+#!/usr/bin/perl -w
+use IO::Socket::SSL;
+$|=1;
+$sender=IO::Socket::SSL->new(PeerAddr=>'192.168.0.3:5354', SSL_verify_mode=>0,) || die "Failed to start SSL: ".IO::Socket::SSL::errstr();
+print $sender "ls -al";
+$sender->close();
+exit(1);
++++++++++++++++++++++++++++++++++
+Run the code above on the client side (P.S.: 192.168.0.3 is the IP address of the server).
