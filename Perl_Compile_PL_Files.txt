@@ -1,0 +1,8 @@
+Compile Perl into executable applications
+
+Install PP:
+#apt-get update
+#apt-get install libpar-packer-perl
+
+Execute PP:
+#pp -o hello.out ./hello.pl
